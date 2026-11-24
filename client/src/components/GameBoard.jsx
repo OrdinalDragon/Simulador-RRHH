@@ -164,11 +164,18 @@ export function GameBoard({
                       {primaryMeta.shortLabel}
                     </span>
                   )}
-                  {scenario.isFocusChallenge && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
-                      <Target className="h-3 w-3" />
-                      Desafío priorizado por tu CV
+                  {scenario.isAiGenerated ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-200">
+                      <Sparkles className="h-3 w-3" />
+                      Caso generado por IA para tu CV
                     </span>
+                  ) : (
+                    scenario.isFocusChallenge && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
+                        <Target className="h-3 w-3" />
+                        Desafío priorizado por tu CV
+                      </span>
+                    )
                   )}
                 </div>
               </div>

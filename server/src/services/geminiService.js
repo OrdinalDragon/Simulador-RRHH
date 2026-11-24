@@ -216,6 +216,54 @@ const finalReportResponseSchema = {
   ],
 };
 
+const customScenariosResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    scenarios: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          area: { type: Type.STRING },
+          primaryCompetency: { type: Type.STRING, enum: VALID_COMPETENCIES },
+          context: { type: Type.STRING },
+          question: { type: Type.STRING },
+          options: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING },
+                feedback: { type: Type.STRING },
+                isOptimal: { type: Type.BOOLEAN },
+                impact: {
+                  type: Type.OBJECT,
+                  properties: {
+                    organizacionDetalle: { type: Type.INTEGER },
+                    gestionDatos: { type: Type.INTEGER },
+                    confidencialidadEtica: { type: Type.INTEGER },
+                    comunicacionServicio: { type: Type.INTEGER },
+                  },
+                  required: [
+                    'organizacionDetalle',
+                    'gestionDatos',
+                    'confidencialidadEtica',
+                    'comunicacionServicio',
+                  ],
+                },
+              },
+              required: ['text', 'feedback', 'isOptimal', 'impact'],
+            },
+          },
+        },
+        required: ['title', 'area', 'primaryCompetency', 'context', 'question', 'options'],
+      },
+    },
+  },
+  required: ['scenarios'],
+};
+
 /**
  * Extrae texto de PDFs escaneados (como CamScanner) usando Mistral OCR si MISTRAL_API_KEY existe.
  */
@@ -736,6 +784,145 @@ Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
       cleanText,
       'Servicios de IA temporalmente no disponibles; se utilizó análisis institucional de respaldo.'
     );
+  }
+}
+
+export async function generateCustomScenarios({ cvText, cvAnalysis }) {
+  if (!cvAnalysis) return [];
+
+  const prompt = `
+Actuá como diseñador senior de simulaciones de Recursos Humanos para IZET S.A.
+Creá exactamente 2 escenarios prácticos y originales del día a día de Auxiliar Administrativo/a de RR.HH. en IZET S.A., PERSONALIZADOS según el CV del postulante para poner a prueba sus brechas o validar sus fortalezas declaradas.
+
+PERFIL DEL PUESTO:
+${JOB_PROFILE_CONTEXT}
+
+DIAGNÓSTICO DEL CV DEL POSTULANTE:
+${JSON.stringify(
+  {
+    candidato: cvAnalysis.candidate,
+    encaje: cvAnalysis.requirementsFit,
+    fortalezas: cvAnalysis.strengths,
+    areasADesafiar: cvAnalysis.challengeAreas,
+    competenciasFoco: cvAnalysis.focusCompetencies,
+  },
+  null,
+  2
+)}
+
+EXTRACTO DEL CV:
+"""
+${String(cvText || '').slice(0, 3500)}
+"""
+
+Reglas estrictas:
+- No inventes políticas, beneficios ni salarios ajenos a IZET S.A.
+- Cada escenario debe tener exactamente 3 opciones: 1 óptima (isOptimal: true) y 2 distractores realistas y plausibles (isOptimal: false).
+- Las 3 opciones deben tener longitud similar (entre 18 y 32 palabras) para que la respuesta correcta no sea obvia.
+- En impact usá enteros entre -14 y +16 coherentes con la decisión.
+- Respondé en español rioplatense profesional.
+
+Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura:
+{
+  "scenarios": [
+    {
+      "title": "Título conciso del caso",
+      "area": "Área operativa (ej. Legajos CET, Planillas SAIE, Excel y Reportes, Confidencialidad)",
+      "primaryCompetency": "organizacionDetalle | gestionDatos | confidencialidadEtica | comunicacionServicio",
+      "context": "Situación concreta en 2-3 oraciones vinculada al día a día en IZET S.A.",
+      "question": "Pregunta directa de acción",
+      "options": [
+        {
+          "text": "Opción 1",
+          "feedback": "Feedback breve y formativo",
+          "isOptimal": true,
+          "impact": { "organizacionDetalle": 10, "gestionDatos": 6, "confidencialidadEtica": 4, "comunicacionServicio": 4 }
+        },
+        {
+          "text": "Opción 2",
+          "feedback": "Feedback breve y formativo",
+          "isOptimal": false,
+          "impact": { "organizacionDetalle": -6, "gestionDatos": -4, "confidencialidadEtica": 0, "comunicacionServicio": 2 }
+        },
+        {
+          "text": "Opción 3",
+          "feedback": "Feedback breve y formativo",
+          "isOptimal": false,
+          "impact": { "organizacionDetalle": -4, "gestionDatos": -6, "confidencialidadEtica": -2, "comunicacionServicio": -4 }
+        }
+      ]
+    }
+  ]
+}
+`;
+
+  const clampImpact = (n) => Math.max(-18, Math.min(18, Math.round(Number(n) || 0)));
+
+  try {
+    const { data, provider } = await runProviderCascade({
+      prompt,
+      responseSchema: customScenariosResponseSchema,
+      temperature: 0.45,
+      hasText: true,
+    });
+
+    const rawList = Array.isArray(data?.scenarios) ? data.scenarios.slice(0, 2) : [];
+    const normalized = rawList
+      .map((sc, idx) => {
+        const opts = Array.isArray(sc?.options) ? sc.options.slice(0, 3) : [];
+        if (opts.length !== 3 || !sc?.title || !sc?.context || !sc?.question) return null;
+
+        // Asegurar exactamente 1 opción óptima
+        let optimalIndex = opts.findIndex((o) => Boolean(o.isOptimal));
+        if (optimalIndex === -1) optimalIndex = 0;
+
+        const cleanOptions = opts.map((opt, optIdx) => {
+          const isOpt = optIdx === optimalIndex;
+          return {
+            id: ['A', 'B', 'C'][optIdx],
+            text: String(opt.text || '').trim(),
+            feedback: String(opt.feedback || '').trim(),
+            isOptimal: isOpt,
+            scoreDelta: isOpt ? 10 : -3,
+            impact: {
+              organizacionDetalle: clampImpact(opt.impact?.organizacionDetalle),
+              gestionDatos: clampImpact(opt.impact?.gestionDatos),
+              confidencialidadEtica: clampImpact(opt.impact?.confidencialidadEtica),
+              comunicacionServicio: clampImpact(opt.impact?.comunicacionServicio),
+            },
+          };
+        });
+
+        if (cleanOptions.some((o) => !o.text || !o.feedback)) return null;
+
+        return {
+          scenarioKey: `AI-CV-0${idx + 1}`,
+          code: `AI-CV-0${idx + 1}`,
+          title: String(sc.title).trim(),
+          area: String(sc.area || 'Caso Personalizado').trim(),
+          primaryCompetency: pickEnum(
+            sc.primaryCompetency,
+            VALID_COMPETENCIES,
+            cvAnalysis.focusCompetencies?.[idx] || 'organizacionDetalle'
+          ),
+          isAiGenerated: true,
+          aiProvider: provider,
+          context: String(sc.context).trim(),
+          question: String(sc.question).trim(),
+          options: cleanOptions,
+        };
+      })
+      .filter(Boolean);
+
+    if (normalized.length > 0) {
+      console.log(
+        `[AIService] Se generaron ${normalized.length} escenario(s) personalizados con ${provider}.`
+      );
+    }
+    return normalized;
+  } catch (error) {
+    console.warn('[AIService] No se pudieron generar escenarios personalizados:', error.message);
+    return [];
   }
 }
 

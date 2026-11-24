@@ -1,11 +1,43 @@
 import mongoose from 'mongoose';
 import { COMPETENCY_KEYS } from './Scenario.js';
 
+const sessionOptionSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, enum: ['A', 'B', 'C', 'D'] },
+    text: { type: String, required: true },
+    feedback: { type: String, required: true },
+    isOptimal: { type: Boolean, default: false },
+    scoreDelta: { type: Number, required: true },
+    impact: {
+      organizacionDetalle: { type: Number, default: 0 },
+      gestionDatos: { type: Number, default: 0 },
+      confidencialidadEtica: { type: Number, default: 0 },
+      comunicacionServicio: { type: Number, default: 0 },
+    },
+  },
+  { _id: false }
+);
+
+const sessionScenarioSchema = new mongoose.Schema(
+  {
+    scenarioKey: { type: String, required: true },
+    code: { type: String, required: true },
+    title: { type: String, required: true },
+    area: { type: String, required: true },
+    primaryCompetency: { type: String, enum: COMPETENCY_KEYS, required: true },
+    isAiGenerated: { type: Boolean, default: false },
+    aiProvider: { type: String, default: null },
+    context: { type: String, required: true },
+    question: { type: String, required: true },
+    options: { type: [sessionOptionSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const answerSchema = new mongoose.Schema(
   {
     scenarioId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Scenario',
+      type: String,
       required: true,
     },
     scenarioCode: { type: String, required: true },
@@ -129,6 +161,10 @@ const sessionSchema = new mongoose.Schema(
         ref: 'Scenario',
       },
     ],
+    sessionScenarios: {
+      type: [sessionScenarioSchema],
+      default: [],
+    },
     currentIndex: {
       type: Number,
       default: 0,

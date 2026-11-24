@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { connectDB, isDbConnected } from './config/db.js';
 import { getConfiguredProviders } from './services/geminiService.js';
+import { seedScenarios } from './seed.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 
 const app = express();
@@ -46,7 +47,10 @@ app.use((err, _req, res, _next) => {
 });
 
 async function bootstrap() {
-  await connectDB();
+  const connected = await connectDB();
+  if (connected) {
+    await seedScenarios();
+  }
   app.listen(PORT, () => {
     console.log(`[Server] API IZET RR.HH. escuchando en http://localhost:${PORT}`);
   });

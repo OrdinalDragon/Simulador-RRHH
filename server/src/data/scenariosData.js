@@ -6,28 +6,28 @@ export const SCENARIOS_DATA = [
     area: 'Legajos y Documentación',
     primaryCompetency: 'organizacionDetalle',
     context:
-      'Una profesional recién incorporada al CET entrega su carpeta con documentación personal y profesional. Al revisarla para armar su legajo, notás que falta una copia legible de su constancia de estudios y un formulario administrativo sin firmar.',
+      'Una profesional recién incorporada al CET entrega su carpeta de ingreso antes de su primer turno. Al revisarla, notás que falta una copia legible de su constancia de estudios y un formulario administrativo sin firmar.',
     question: '¿Cómo procedés para organizar y mantener el legajo actualizado?',
     options: [
       {
         id: 'A',
-        text: 'Archivo la carpeta tal como llegó para no demorar el alta y anoto en un papel suelto pedir lo faltante cuando la cruce en el pasillo.',
+        text: 'Recibo la carpeta completa, registro el ingreso como activo y le envío un mensaje informal recordándole que acerque el faltante durante el mes.',
         feedback:
-          'Archivar legajos incompletos sin registro formal genera desorden y riesgos administrativos en auditorías o controles del área.',
+          'Dar el alta sin registrar formalmente el pendiente en el control de legajos hace que los faltantes se pierdan con la rutina diaria.',
         isOptimal: false,
-        scoreDelta: -4,
+        scoreDelta: -2,
         impact: {
-          organizacionDetalle: -10,
+          organizacionDetalle: -8,
           gestionDatos: -4,
           confidencialidadEtica: 0,
-          comunicacionServicio: -2,
+          comunicacionServicio: 2,
         },
       },
       {
         id: 'B',
-        text: 'Cargo el legajo como "pendiente de documentación" en el registro de control, detallo exactamente qué falta y contacto formalmente a la profesional con un plazo claro para completarlo.',
+        text: 'Archivo lo recibido marcando el legajo como "pendiente de documentación" en la planilla de control y solicito formalmente el faltante con plazo claro.',
         feedback:
-          'Excelente criterio: combinás control documental riguroso, trazabilidad en el seguimiento y comunicación clara y respetuosa con la profesional.',
+          'Excelente criterio: resguardás lo entregado, asegurás trazabilidad en el control documental y comunicás con claridad el plazo.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -39,16 +39,16 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Le devuelvo toda la carpeta completa a la profesional para que la traiga nuevamente recién cuando tenga todo listo.',
+        text: 'Devuelvo la carpeta entera a la profesional y le pido que regrese a RR.HH. recién cuando tenga todos los documentos completos y firmados.',
         feedback:
-          'Devolver toda la documentación ya entregada puede retrasar innecesariamente el proceso de incorporación y generar mala experiencia inicial.',
+          'Aunque busca orden, rechazar toda la documentación ya reunida demora innecesariamente la incorporación y genera fricción inicial.',
         isOptimal: false,
         scoreDelta: 2,
         impact: {
           organizacionDetalle: 2,
           gestionDatos: 0,
           confidencialidadEtica: 2,
-          comunicacionServicio: -6,
+          comunicacionServicio: -8,
         },
       },
     ],
@@ -60,28 +60,28 @@ export const SCENARIOS_DATA = [
     area: 'Registros Mensuales',
     primaryCompetency: 'gestionDatos',
     context:
-      'Llega el cierre de mes y estás controlando las planillas mensuales de actividades del Servicio de Apoyo a la Integración Escolar (SAIE). Detectás que tres profesionales entregaron sus planillas con fechas superpuestas y otros dos todavía no las enviaron.',
+      'En el cierre mensual de planillas de actividades del SAIE detectás que tres profesionales tienen fechas superpuestas en sus registros y otros dos todavía no enviaron su planilla.',
     question: '¿Qué acción tomás para ordenar los registros mensuales?',
     options: [
       {
         id: 'A',
-        text: 'Corrijo manualmente las fechas superpuestas según lo que supongo más lógico para cerrar rápido la planilla consolidada.',
+        text: 'Ajusto las fechas superpuestas según el cronograma habitual de cada profesional y envío un aviso general al grupo del SAIE por las entregas faltantes.',
         feedback:
-          'Modificar registros de actividades por suposición compromete la veracidad de la información administrativa y puede impactar la liquidación.',
+          'Corregir registros de actividades sin validación del profesional compromete la exactitud de la información para honorarios.',
         isOptimal: false,
-        scoreDelta: -6,
+        scoreDelta: -4,
         impact: {
-          organizacionDetalle: -8,
+          organizacionDetalle: -6,
           gestionDatos: -10,
           confidencialidadEtica: -4,
-          comunicacionServicio: -2,
+          comunicacionServicio: 0,
         },
       },
       {
         id: 'B',
-        text: 'Dejo constancia en una planilla de seguimiento, consulto puntualmente a los tres profesionales para validar las fechas, envío recordatorio amable a quienes adeudan entrega e informo el estado a la Responsable de RR.HH.',
+        text: 'Registro las observaciones en la planilla de seguimiento, pido confirmación puntual de fechas, envío recordatorio individual y reporto el estado a RR.HH.',
         feedback:
-          'Muy bien: sostenés la integridad de los datos, hacés seguimiento ordenado y mantenés informada a tu referente directa.',
+          'Muy bien: cuidás la integridad de los datos, hacés seguimiento ordenado caso por caso y mantenés informada a la Responsable de RR.HH.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -93,16 +93,16 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Espero dos días más sin escribirle a nadie para ver si envían las correcciones y planillas faltantes por iniciativa propia.',
+        text: 'Cierro la planilla mensual únicamente con los registros correctos para cumplir la fecha y dejo los cinco casos pendientes para el mes siguiente.',
         feedback:
-          'La demora pasiva frente a cierres mensuales puede generar cuellos de botella en la preparación de documentación para honorarios.',
+          'Dejar cinco casos fuera del cierre sin gestión activa genera reclamos y desordena la liquidación mensual del área.',
         isOptimal: false,
         scoreDelta: -2,
         impact: {
-          organizacionDetalle: -6,
+          organizacionDetalle: -4,
           gestionDatos: -4,
           confidencialidadEtica: 0,
-          comunicacionServicio: -4,
+          comunicacionServicio: -8,
         },
       },
     ],
@@ -114,42 +114,42 @@ export const SCENARIOS_DATA = [
     area: 'Liquidación y Honorarios',
     primaryCompetency: 'organizacionDetalle',
     context:
-      'La Responsable del Departamento de RR.HH. te pide preparar y ordenar la documentación de respaldo para la liquidación de honorarios y remuneraciones del mes antes de las 15:00 hs. Al cruzar los comprobantes con el listado de personal activo, encontrás una diferencia en un profesional.',
-    question: '¿Cómo resolvés la preparación de esa documentación?',
+      'La Responsable de RR.HH. te pide la documentación ordenada para liquidación de honorarios antes de las 15:00 hs. Al cruzar los comprobantes con el personal activo, encontrás una diferencia en un profesional.',
+    question: '¿Cómo resolvés la entrega de esa documentación?',
     options: [
       {
         id: 'A',
-        text: 'Entrego todo el paquete sin mencionar la diferencia para cumplir con el horario, asumiendo que después alguien lo revisará.',
+        text: 'Entrego el paquete completo en horario para no retrasar el proceso y dejo una nota interna para revisar esa diferencia después de la liquidación.',
         feedback:
-          'Omitir una inconsistencia detectada puede derivar en errores de liquidación y pérdida de confianza en el área.',
+          'Entregar una diferencia sin alertarla antes del cierre puede provocar un error de liquidación evitable.',
         isOptimal: false,
         scoreDelta: -6,
         impact: {
           organizacionDetalle: -12,
           gestionDatos: -6,
-          confidencialidadEtica: -4,
+          confidencialidadEtica: -2,
           comunicacionServicio: -4,
         },
       },
       {
         id: 'B',
-        text: 'Freno la entrega de todo el paquete del personal hasta el día siguiente para resolver ese único caso.',
+        text: 'Postergo la entrega completa de toda la carpeta hasta el día siguiente para poder contactar al profesional y presentar todo sin observaciones.',
         feedback:
-          'Retener toda la documentación del resto del equipo por un caso aislado afecta innecesariamente los tiempos operativos generales.',
+          'Frenar la documentación de todo el equipo por un caso puntual perjudica los plazos generales del departamento.',
         isOptimal: false,
         scoreDelta: 2,
         impact: {
           organizacionDetalle: 2,
           gestionDatos: 0,
           confidencialidadEtica: 2,
-          comunicacionServicio: -4,
+          comunicacionServicio: -6,
         },
       },
       {
         id: 'C',
-        text: 'Entrego en tiempo y forma la documentación verificada, marco de manera visible el caso con diferencia adjuntando el detalle hallado y lo escalo de inmediato a la Responsable de RR.HH. para su validación.',
+        text: 'Entrego en tiempo la documentación verificada, señalo claramente el caso con diferencia adjuntando el detalle y lo escalo de inmediato a RR.HH.',
         feedback:
-          'Resolución impecable: cumplís plazos, aplicás atención al detalle y escalás desvíos con información clara para decidir rápido.',
+          'Resolución impecable: cumplís el plazo sin frenar al resto del equipo y aportás evidencia clara para que la Responsable decida rápido.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -168,28 +168,28 @@ export const SCENARIOS_DATA = [
     area: 'Bases de Datos y Excel',
     primaryCompetency: 'gestionDatos',
     context:
-      'Debés actualizar la base de datos de personal en Excel con los ingresos y cambios del trimestre. Al abrir el archivo notás que el campo "Dispositivo" tiene cargas inconsistentes ("CET", "c.e.t.", "Centro Terap", "SAIE ") que rompen los filtros y conteos para reportes.',
+      'Al actualizar la base de personal en Excel notás que la columna "Dispositivo" mezcla valores distintos ("CET", "c.e.t.", "Centro Terap", "SAIE "), lo que altera los filtros y conteos de los reportes.',
     question: '¿Cómo abordás la actualización de la planilla?',
     options: [
       {
         id: 'A',
-        text: 'Agrego los nuevos registros al final manteniendo los nombres variados para no tocar lo que cargaron antes.',
+        text: 'Cargo los nuevos ingresos con formato prolijo y dejo las filas anteriores intactas para evitar modificar registros históricos cargados por otros.',
         feedback:
-          'Mantener datos desnormalizados perpetúa errores en los reportes administrativos y dificulta cualquier consulta futura.',
+          'Conservar inconsistencias históricas mantiene rotos los filtros y obliga a corregir manualmente cada reporte futuro.',
         isOptimal: false,
-        scoreDelta: -4,
+        scoreDelta: -2,
         impact: {
-          organizacionDetalle: -6,
-          gestionDatos: -10,
+          organizacionDetalle: -4,
+          gestionDatos: -8,
           confidencialidadEtica: 0,
           comunicacionServicio: 0,
         },
       },
       {
         id: 'B',
-        text: 'Guardo una copia de respaldo, unifico criterios de nomenclatura (CET / SAIE / Administración), aplico validación de datos (lista desplegable) en Excel y verifico que los totales coincidan.',
+        text: 'Guardo una copia de respaldo, unifico criterios de nomenclatura, configuro validación de datos en Excel y verifico que los totales coincidan.',
         feedback:
-          'Gran manejo técnico y preventivo: resguardar copia previa, estandarizar valores y aplicar validaciones evita errores recurrentes.',
+          'Gran manejo técnico y preventivo: resguardar copia, estandarizar y aplicar listas desplegables elimina el error de raíz.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -201,15 +201,15 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Borro las filas con formato incorrecto y las vuelvo a escribir de memoria para ahorrar tiempo.',
+        text: 'Creo una pestaña nueva desde cero copiando solo los datos que necesito para el reporte actual y archivo la base original sin depurarla.',
         feedback:
-          'Eliminar registros sin respaldo ni verificación puede provocar pérdida irreversible de información sensible del personal.',
+          'Duplicar bases paralelas genera versiones desactualizadas y aumenta el riesgo de errores en la gestión del área.',
         isOptimal: false,
-        scoreDelta: -6,
+        scoreDelta: -4,
         impact: {
-          organizacionDetalle: -8,
-          gestionDatos: -12,
-          confidencialidadEtica: -6,
+          organizacionDetalle: -6,
+          gestionDatos: -10,
+          confidencialidadEtica: -2,
           comunicacionServicio: 0,
         },
       },
@@ -222,28 +222,28 @@ export const SCENARIOS_DATA = [
     area: 'Confidencialidad',
     primaryCompetency: 'confidencialidadEtica',
     context:
-      'Mientras trabajás con los legajos del personal, un integrante de otro sector se acerca a tu escritorio y te pide el domicilio particular y una copia de la documentación personal de una profesional, comentando que "es solo para agilizar un trámite interno".',
+      'Un integrante de otro sector se acerca a tu escritorio y te pide el domicilio particular y una copia de la documentación personal de una profesional, argumentando que necesita agilizar una gestión interna urgente.',
     question: '¿Cuál es tu respuesta ante este pedido?',
     options: [
       {
         id: 'A',
-        text: 'Se lo paso en el momento porque es un compañero de la institución y seguramente lo necesita con urgencia.',
+        text: 'Le brindo solo el domicilio de manera verbal sin entregar copias impresas para ayudar con la urgencia sin sacar documentación del archivo.',
         feedback:
-          'Compartir datos personales de legajos sin autorización vulnera gravemente la discreción y confidencialidad requeridas en RR.HH.',
+          'Divulgar datos personales de un legajo sin autorización vulnera la confidencialidad aunque no se entregue copia física.',
         isOptimal: false,
-        scoreDelta: -8,
+        scoreDelta: -6,
         impact: {
-          organizacionDetalle: -4,
-          gestionDatos: -2,
-          confidencialidadEtica: -18,
-          comunicacionServicio: 0,
+          organizacionDetalle: -2,
+          gestionDatos: 0,
+          confidencialidadEtica: -16,
+          comunicacionServicio: 2,
         },
       },
       {
         id: 'B',
-        text: 'Le respondo con amabilidad que la información de los legajos es confidencial y que para brindarla necesito canalizar la solicitud a través de la Responsable del Departamento de RR.HH.',
+        text: 'Le explico con amabilidad que los datos de los legajos son confidenciales y que el pedido debe canalizarse mediante la Responsable de RR.HH.',
         feedback:
-          'Actuación ejemplar: protegés la confidencialidad de los datos personales manteniendo un trato cordial y respetando la línea de reporte.',
+          'Actuación ejemplar: resguardás la confidencialidad con firmeza, buen trato y respeto por la línea de reporte del área.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -255,16 +255,16 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Le muestro la pantalla de mi computadora para que lo anote él mismo y así no entregarle ninguna copia impresa.',
+        text: 'Le pido que me deje el pedido por correo para que quede registro escrito y, una vez recibido el mail, le reenvío el dato solicitado.',
         feedback:
-          'Exhibir datos personales en pantalla sin autorización equivale igualmente a divulgar información confidencial.',
+          'Un correo de otro sector no reemplaza la autorización de la Responsable de RR.HH. para compartir datos personales.',
         isOptimal: false,
-        scoreDelta: -6,
+        scoreDelta: -4,
         impact: {
-          organizacionDetalle: -2,
+          organizacionDetalle: 0,
           gestionDatos: 0,
-          confidencialidadEtica: -14,
-          comunicacionServicio: -2,
+          confidencialidadEtica: -12,
+          comunicacionServicio: 0,
         },
       },
     ],
@@ -276,14 +276,14 @@ export const SCENARIOS_DATA = [
     area: 'Articulación Interna',
     primaryCompetency: 'comunicacionServicio',
     context:
-      'Necesitás relevar novedades de asistencia y cambios de disponibilidad de los equipos antes del viernes para actualizar los registros del área. La coordinación de CET suele responder por correo, mientras que la coordinación de SAIE está con agenda intensa en escuelas.',
+      'Necesitás relevar novedades de asistencia y disponibilidad antes del viernes. La coordinación de CET suele responder por correo, mientras que la coordinación de SAIE está con agenda intensa visitando escuelas.',
     question: '¿Cómo coordinás el relevamiento para asegurar respuesta a tiempo?',
     options: [
       {
         id: 'A',
-        text: 'Envío un único mensaje breve y claro con el detalle exacto de lo requerido, fecha límite y una plantilla simple para completar, y realizo un seguimiento cordial antes del cierre si falta confirmación.',
+        text: 'Envío un mensaje breve y estructurado con fecha límite y una plantilla simple para completar, y hago un seguimiento cordial antes del cierre.',
         feedback:
-          'Excelente articulación: facilitás el trabajo de los coordinadores con consignas claras, formato ágil y seguimiento oportuno.',
+          'Excelente articulación: respetás los tiempos de ambas coordinaciones con consignas claras, formato ágil y seguimiento oportuno.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -295,9 +295,9 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'B',
-        text: 'Envío un correo extenso explicando todos los problemas administrativos del mes y exigiendo respuesta en el día.',
+        text: 'Envío un correo detallado explicando el impacto administrativo de las demoras y solicito respuesta obligatoria dentro de las próximas horas.',
         feedback:
-          'Los mensajes sobrecargados o con tono demandante dificultan la lectura rápida y deterioran el vínculo interdisciplinario.',
+          'Un tono rígido o extenso frente a equipos en terreno dificulta la lectura rápida y puede generar fricción interdisciplinaria.',
         isOptimal: false,
         scoreDelta: -4,
         impact: {
@@ -309,14 +309,14 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Registro solo lo que respondió CET y dejo en blanco lo de SAIE hasta el mes siguiente.',
+        text: 'Consolido el informe con lo que responda CET el viernes y aclaro en una nota que SAIE enviará sus novedades la semana siguiente.',
         feedback:
-          'Dejar información sin relevar genera vacíos en el seguimiento mensual y obliga a reprocesos posteriores.',
+          'Asumir la demora sin seguimiento previo deja incompletos los registros mensuales y genera reprocesos.',
         isOptimal: false,
-        scoreDelta: -4,
+        scoreDelta: -2,
         impact: {
           organizacionDetalle: -6,
-          gestionDatos: -6,
+          gestionDatos: -4,
           confidencialidadEtica: 0,
           comunicacionServicio: -6,
         },
@@ -330,28 +330,28 @@ export const SCENARIOS_DATA = [
     area: 'Selección e Incorporación',
     primaryCompetency: 'organizacionDetalle',
     context:
-      'Colaborás en una búsqueda laboral publicada por IZET S.A. En tres días ingresaron más de 40 currículums por el canal oficial, algunos sin asunto claro y con archivos en distintos formatos.',
+      'En tres días ingresaron más de 40 currículums para una búsqueda laboral de IZET S.A., varios sin asunto uniforme y en distintos formatos de archivo.',
     question: '¿Cómo organizás los CVs para apoyar el proceso de selección?',
     options: [
       {
         id: 'A',
-        text: 'Reenvío los 40 correos sin filtrar a la Responsable de RR.HH. para que los revise uno por uno desde su bandeja.',
+        text: 'Creo una carpeta digital con todos los adjuntos descargados tal como llegaron y aviso a la Responsable de RR.HH. que ya puede revisarlos.',
         feedback:
-          'Reenviar correos sin orden ni pre-clasificación no aporta valor administrativo y sobrecarga a la Responsable del área.',
+          'Descargar sin renombrar ni resumir requisitos ahorra poco tiempo y traslada todo el filtro operativo a la Responsable.',
         isOptimal: false,
-        scoreDelta: -4,
+        scoreDelta: -2,
         impact: {
-          organizacionDetalle: -10,
+          organizacionDetalle: -8,
           gestionDatos: -6,
           confidencialidadEtica: 0,
-          comunicacionServicio: -4,
+          comunicacionServicio: -2,
         },
       },
       {
         id: 'B',
-        text: 'Descarto automáticamente todos los correos que no pusieron el asunto exacto aunque el CV sea muy bueno.',
+        text: 'Filtro únicamente los correos que respetaron exactamente el asunto publicado y archivo el resto aparte por no seguir la consigna.',
         feedback:
-          'Un filtro rígido sin criterio puede hacer perder perfiles valiosos para el equipo interdisciplinario de la institución.',
+          'Un descarte automático por asunto puede hacer perder buenos perfiles para el equipo interdisciplinario.',
         isOptimal: false,
         scoreDelta: 0,
         impact: {
@@ -363,9 +363,9 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Creo una carpeta ordenada por búsqueda, renombro los archivos con criterio uniforme (Apellido_Nombre) y armo una planilla resumen con datos clave y cumplimiento de requisitos para facilitar la preselección.',
+        text: 'Ordeno los CVs en una carpeta por búsqueda con nombres uniformes y armo una planilla resumen con datos clave y encaje con los requisitos.',
         feedback:
-          'Aporte de altísimo valor: organizás la información de forma sistemática y acelerás la toma de decisiones en selección.',
+          'Aporte de altísimo valor: organizás la documentación sistemáticamente y agilizás la preselección en RR.HH.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -384,14 +384,14 @@ export const SCENARIOS_DATA = [
     area: 'Atención al Personal',
     primaryCompetency: 'comunicacionServicio',
     context:
-      'Un profesional del equipo terapéutico se comunica preocupado porque no comprende el paso a paso para presentar su documentación mensual y teme que haya demoras en su liquidación. Vos tenés además un informe pendiente para la tarde.',
+      'Un profesional del equipo terapéutico te consulta preocupado porque no comprende el procedimiento para entregar su documentación mensual. Al mismo tiempo tenés un informe administrativo pendiente para la tarde.',
     question: '¿Cómo manejás esta consulta?',
     options: [
       {
         id: 'A',
-        text: 'Le respondo con trato cordial, le explico de forma clara y ordenada el procedimiento administrativo paso a paso (y se lo dejo por escrito como referencia) y luego retomo mi informe priorizando tiempos.',
+        text: 'Lo atiendo con trato cordial, le explico el paso a paso de forma clara dejándoselo por escrito como guía y luego retomo mi informe.',
         feedback:
-          'Muy buena orientación al servicio: resolvés la inquietud con empatía y claridad, reduciendo además consultas repetitivas a futuro.',
+          'Excelente orientación al servicio: resolvés la duda con empatía, prevenís consultas repetidas y cuidás tus tiempos.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -403,23 +403,9 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'B',
-        text: 'Le digo que ahora estoy ocupado/a con un informe y que busque la información en correos viejos.',
+        text: 'Le pido que me envíe los archivos sueltos por correo para completar yo su planilla esta vez y así no demorar más mi informe.',
         feedback:
-          'Una respuesta distante afecta el clima laboral y no cumple con la responsabilidad de orientar al personal sobre procedimientos.',
-        isOptimal: false,
-        scoreDelta: -6,
-        impact: {
-          organizacionDetalle: 0,
-          gestionDatos: 0,
-          confidencialidadEtica: 0,
-          comunicacionServicio: -14,
-        },
-      },
-      {
-        id: 'C',
-        text: 'Le digo que no se preocupe y que me mande todo desordenado que yo me encargo de completarle sus planillas.',
-        feedback:
-          'Asumir tareas que corresponden a cada profesional genera dependencia operativa y errores en los registros.',
+          'Hacer tareas que corresponden a cada profesional genera dependencia operativa y riesgo de errores en el registro.',
         isOptimal: false,
         scoreDelta: -2,
         impact: {
@@ -427,6 +413,20 @@ export const SCENARIOS_DATA = [
           gestionDatos: -4,
           confidencialidadEtica: 0,
           comunicacionServicio: 2,
+        },
+      },
+      {
+        id: 'C',
+        text: 'Le indico que estoy cerrando un informe prioritario y le sugiero consultar con su coordinador o revisar correos anteriores del área.',
+        feedback:
+          'Derivar una consulta propia de procedimientos administrativos de RR.HH. afecta la orientación al servicio.',
+        isOptimal: false,
+        scoreDelta: -6,
+        impact: {
+          organizacionDetalle: 0,
+          gestionDatos: 0,
+          confidencialidadEtica: 0,
+          comunicacionServicio: -14,
         },
       },
     ],
@@ -438,28 +438,28 @@ export const SCENARIOS_DATA = [
     area: 'Reuniones y Capacitaciones',
     primaryCompetency: 'comunicacionServicio',
     context:
-      'El Departamento de RR.HH. colabora en la organización de una capacitación interna para los equipos de CET y SAIE. Te asignan coordinar la convocatoria, el registro de asistencia y el material de apoyo para el encuentro.',
+      'Colaborás en la organización de una capacitación interna para los equipos de CET y SAIE. Te asignan coordinar la convocatoria, el registro de asistencia y el material de apoyo del encuentro.',
     question: '¿Cómo planificás esta actividad interna?',
     options: [
       {
         id: 'A',
-        text: 'Envío la invitación el mismo día por la mañana para que nadie se olvide y anoto los asistentes en una hoja suelta al finalizar.',
+        text: 'Envío la convocatoria a los coordinadores para que la reenvíen a sus equipos y el día del encuentro anoto a los presentes en una lista.',
         feedback:
-          'Convocar sin anticipación afecta la asistencia de los equipos terapéuticos y complica el registro posterior de la actividad.',
+          'Sin confirmar confirmaciones previas ni preparar materiales con anticipación, aumentan las ausencias y los imprevistos.',
         isOptimal: false,
-        scoreDelta: -4,
+        scoreDelta: 0,
         impact: {
-          organizacionDetalle: -8,
-          gestionDatos: -4,
+          organizacionDetalle: -4,
+          gestionDatos: -2,
           confidencialidadEtica: 0,
-          comunicacionServicio: -8,
+          comunicacionServicio: -4,
         },
       },
       {
         id: 'B',
-        text: 'Armo un checklist con anticipación: confirmo fecha y espacio con la Responsable de RR.HH., envío convocatoria clara con recordatorio, preparo lista de asistencia y archivo luego el registro de participación.',
+        text: 'Armo un checklist previo: confirmo fecha y espacio con RR.HH., envío convocatoria con recordatorio, preparo planilla de asistencia y archivo el registro.',
         feedback:
-          'Planificación sobresaliente: anticipás logística, asegurás buena comunicación con las áreas y dejás trazabilidad administrativa.',
+          'Planificación sobresaliente: anticipás logística, asegurás buena convocatoria y dejás trazabilidad administrativa.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {
@@ -471,16 +471,16 @@ export const SCENARIOS_DATA = [
       },
       {
         id: 'C',
-        text: 'Solo reenvío el enlace o fecha a los coordinadores y me desentiendo del seguimiento de confirmaciones y materiales.',
+        text: 'Preparo el material de apoyo primero y envío la invitación 24 horas antes para evitar cambios de agenda de último momento.',
         feedback:
-          'Delegar sin seguimiento puede derivar en ausencias imprevistas o faltantes el día de la capacitación.',
+          'Convocar con tan poca anticipación dificulta que los equipos terapéuticos organicen sus horarios en CET y SAIE.',
         isOptimal: false,
-        scoreDelta: 0,
+        scoreDelta: -4,
         impact: {
-          organizacionDetalle: -4,
+          organizacionDetalle: -8,
           gestionDatos: -2,
           confidencialidadEtica: 0,
-          comunicacionServicio: -4,
+          comunicacionServicio: -8,
         },
       },
     ],
@@ -492,28 +492,14 @@ export const SCENARIOS_DATA = [
     area: 'Informes y Confidencialidad',
     primaryCompetency: 'confidencialidadEtica',
     context:
-      'Te solicitan elaborar un reporte administrativo mensual con indicadores de dotación, entregas de planillas y estado de documentación para compartir en una reunión de coordinación de áreas. La base original incluye DNI, teléfonos personales y datos sensibles de legajo.',
-    question: '¿Qué criterio aplicás al generar y distribuir el reporte?',
+      'Te piden preparar un reporte mensual con indicadores de dotación, entregas de planillas y estado documental para una reunión de coordinación. La base maestra incluye DNI y teléfonos personales del personal.',
+    question: '¿Qué criterio aplicás al generar y compartir el reporte?',
     options: [
       {
         id: 'A',
-        text: 'Adjunto directamente la base de datos maestra completa en Excel para que cada coordinador filtre lo que quiera ver.',
+        text: 'Oculto las columnas de DNI y teléfonos en el archivo Excel original y lo envío en formato protegido de solo lectura a los participantes.',
         feedback:
-          'Distribuir la base maestra expone datos personales innecesarios y viola el principio de confidencialidad y mínima exposición.',
-        isOptimal: false,
-        scoreDelta: -8,
-        impact: {
-          organizacionDetalle: -4,
-          gestionDatos: -6,
-          confidencialidadEtica: -18,
-          comunicacionServicio: -2,
-        },
-      },
-      {
-        id: 'B',
-        text: 'Oculto las columnas de DNI y teléfonos en el mismo Excel y lo envío así por correo a todos los participantes.',
-        feedback:
-          'Ocultar columnas en Excel no protege la información: cualquier destinatario puede mostrarlas en segundos.',
+          'Ocultar columnas en Excel no elimina los datos sensibles del archivo: cualquier persona puede copiarlos o mostrarlos.',
         isOptimal: false,
         scoreDelta: -4,
         impact: {
@@ -524,10 +510,24 @@ export const SCENARIOS_DATA = [
         },
       },
       {
-        id: 'C',
-        text: 'Genero un reporte limpio solo con los indicadores administrativos necesarios (sin datos personales sensibles), verifico los cálculos y lo valido con la Responsable de RR.HH. antes de compartirlo.',
+        id: 'B',
+        text: 'Envío la base maestra únicamente a los coordinadores de área aclarando en el correo que la información es de uso estrictamente interno.',
         feedback:
-          'Criterio profesional de excelencia: combinás calidad en reportes de gestión, precisión de datos y máximo resguardo ético.',
+          'Una aclaración por correo no justifica compartir datos personales innecesarios para una reunión de indicadores.',
+        isOptimal: false,
+        scoreDelta: -6,
+        impact: {
+          organizacionDetalle: -4,
+          gestionDatos: -4,
+          confidencialidadEtica: -16,
+          comunicacionServicio: -2,
+        },
+      },
+      {
+        id: 'C',
+        text: 'Genero un reporte limpio solo con indicadores administrativos (sin datos personales), verifico cálculos y lo valido con la Responsable de RR.HH.',
+        feedback:
+          'Criterio profesional de excelencia: combinás precisión en reportes de gestión con máximo resguardo de datos personales.',
         isOptimal: true,
         scoreDelta: 10,
         impact: {

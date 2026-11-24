@@ -7,6 +7,7 @@ import { SCENARIOS_DATA } from '../data/scenariosData.js';
 import {
   analyzeCV,
   extractPdfTextWithOcr,
+  generateCustomScenarios,
   generateFinalReport,
 } from '../services/geminiService.js';
 import { seedScenarios } from '../seed.js';
@@ -33,13 +34,6 @@ async function getAllScenarios() {
     scenarios = await Scenario.find().sort({ order: 1 });
   }
   return scenarios;
-}
-
-async function getScenarioById(id) {
-  if (!isDbConnected()) {
-    return memoryScenarios.find((s) => String(s._id) === String(id)) || null;
-  }
-  return Scenario.findById(id);
 }
 
 async function createSessionRecord(payload) {
@@ -74,19 +68,82 @@ function getCompetenciesPlain(session) {
     : { ...session.competencies };
 }
 
-function sanitizeScenarioForClient(scenarioDoc, focusCompetencies = []) {
-  if (!scenarioDoc) return null;
+/**
+ * Mezcla aleatoriamente las opciones A/B/C evitando repetir la misma letra óptima
+ * en escenarios consecutivos para que la posición correcta nunca sea predecible.
+ */
+function shuffleScenarioOptions(rawOptions, prevOptimalLetter = null) {
+  const letters = ['A', 'B', 'C', 'D'];
+  const items = rawOptions.map((opt) => ({
+    text: opt.text,
+    feedback: opt.feedback,
+    isOptimal: Boolean(opt.isOptimal),
+    scoreDelta: opt.scoreDelta ?? (opt.isOptimal ? 10 : -3),
+    impact: {
+      organizacionDetalle: opt.impact?.organizacionDetalle ?? 0,
+      gestionDatos: opt.impact?.gestionDatos ?? 0,
+      confidencialidadEtica: opt.impact?.confidencialidadEtica ?? 0,
+      comunicacionServicio: opt.impact?.comunicacionServicio ?? 0,
+    },
+  }));
+
+  let bestShuffle = items;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = crypto.randomInt(0, i + 1);
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    const optIdx = copy.findIndex((o) => o.isOptimal);
+    const optLetter = letters[optIdx];
+    bestShuffle = copy;
+    if (!prevOptimalLetter || optLetter !== prevOptimalLetter) {
+      break;
+    }
+  }
+
+  const labeled = bestShuffle.map((opt, idx) => ({
+    ...opt,
+    id: letters[idx],
+  }));
+
+  const optimalLetter = labeled.find((o) => o.isOptimal)?.id || null;
+  return { options: labeled, optimalLetter };
+}
+
+function toEmbeddedScenario(rawDoc, prevOptimalLetter) {
+  const { options, optimalLetter } = shuffleScenarioOptions(rawDoc.options || [], prevOptimalLetter);
   return {
-    id: scenarioDoc._id,
-    code: scenarioDoc.code,
-    order: scenarioDoc.order,
-    title: scenarioDoc.title,
-    area: scenarioDoc.area,
-    primaryCompetency: scenarioDoc.primaryCompetency,
-    isFocusChallenge: focusCompetencies.includes(scenarioDoc.primaryCompetency),
-    context: scenarioDoc.context,
-    question: scenarioDoc.question,
-    options: scenarioDoc.options.map((opt) => ({
+    scenario: {
+      scenarioKey: String(rawDoc.scenarioKey || rawDoc._id || rawDoc.code),
+      code: rawDoc.code,
+      title: rawDoc.title,
+      area: rawDoc.area,
+      primaryCompetency: rawDoc.primaryCompetency,
+      isAiGenerated: Boolean(rawDoc.isAiGenerated),
+      aiProvider: rawDoc.aiProvider || null,
+      context: rawDoc.context,
+      question: rawDoc.question,
+      options,
+    },
+    optimalLetter,
+  };
+}
+
+function sanitizeScenarioForClient(scenarioObj, focusCompetencies = []) {
+  if (!scenarioObj) return null;
+  return {
+    id: scenarioObj.scenarioKey || String(scenarioObj._id),
+    code: scenarioObj.code,
+    title: scenarioObj.title,
+    area: scenarioObj.area,
+    primaryCompetency: scenarioObj.primaryCompetency,
+    isAiGenerated: Boolean(scenarioObj.isAiGenerated),
+    aiProvider: scenarioObj.aiProvider || null,
+    isFocusChallenge: focusCompetencies.includes(scenarioObj.primaryCompetency),
+    context: scenarioObj.context,
+    question: scenarioObj.question,
+    options: (scenarioObj.options || []).map((opt) => ({
       id: opt.id,
       text: opt.text,
     })),
@@ -107,7 +164,6 @@ export async function startSession(req, res) {
       try {
         const parsedPdf = await pdfParse(req.file.buffer);
         const rawPdfText = (parsedPdf?.text || '').trim();
-        // Descarta marcas de agua de escáner (ej. "CamScanner") sin texto real
         const meaningfulText = rawPdfText.replace(/camscanner/gi, '').trim();
         if (meaningfulText.length >= 40) {
           cvText = rawPdfText;
@@ -133,10 +189,11 @@ export async function startSession(req, res) {
 
     const effectiveMode =
       requestedMode === 'cv' && (cvText.length >= 20 || Boolean(pdfBuffer)) ? 'cv' : 'standard';
-    const scenarios = await getAllScenarios();
+    const baseScenarios = await getAllScenarios();
 
     let cvAnalysis = null;
     let candidateName = rawCandidateName || 'Postulante';
+    let customAiScenarios = [];
 
     if (effectiveMode === 'cv') {
       cvAnalysis = await analyzeCV(cvText, { pdfBuffer });
@@ -149,17 +206,40 @@ export async function startSession(req, res) {
       if (!rawCandidateName && cvAnalysis?.candidate?.fullName) {
         candidateName = cvAnalysis.candidate.fullName;
       }
+
+      // Modelo híbrido: genera hasta 2 escenarios dinámicos con IA basados en el CV
+      customAiScenarios = await generateCustomScenarios({ cvText, cvAnalysis });
     }
 
     const focusCompetencies = cvAnalysis?.focusCompetencies || [];
 
-    const orderedScenarios =
+    const orderedBase =
       focusCompetencies.length > 0
         ? [
-            ...scenarios.filter((s) => focusCompetencies.includes(s.primaryCompetency)),
-            ...scenarios.filter((s) => !focusCompetencies.includes(s.primaryCompetency)),
+            ...baseScenarios.filter((s) => focusCompetencies.includes(s.primaryCompetency)),
+            ...baseScenarios.filter((s) => !focusCompetencies.includes(s.primaryCompetency)),
           ]
-        : scenarios;
+        : baseScenarios;
+
+    // Combinamos 8 escenarios base + 2 generados por IA (si existen), intercalando los de IA en rondas 3 y 7
+    const targetTotal = 10;
+    const baseCountNeeded = Math.max(0, targetTotal - customAiScenarios.length);
+    const combinedRaw = [...orderedBase.slice(0, baseCountNeeded)];
+
+    if (customAiScenarios[0]) {
+      combinedRaw.splice(Math.min(2, combinedRaw.length), 0, customAiScenarios[0]);
+    }
+    if (customAiScenarios[1]) {
+      combinedRaw.splice(Math.min(6, combinedRaw.length), 0, customAiScenarios[1]);
+    }
+
+    // Mezclamos opciones A/B/C en cada escenario evitando patrones repetitivos
+    let prevOptimalLetter = null;
+    const sessionScenarios = combinedRaw.map((raw) => {
+      const { scenario, optimalLetter } = toEmbeddedScenario(raw, prevOptimalLetter);
+      prevOptimalLetter = optimalLetter;
+      return scenario;
+    });
 
     const session = await createSessionRecord({
       mode: effectiveMode,
@@ -168,7 +248,8 @@ export async function startSession(req, res) {
       cvSource: effectiveMode === 'cv' ? cvSource : 'none',
       cvRawText: effectiveMode === 'cv' ? cvText.slice(0, 12000) : '',
       cvAnalysis,
-      scenarioIds: orderedScenarios.map((s) => s._id),
+      scenarioIds: [],
+      sessionScenarios,
       currentIndex: 0,
       competencies: {
         organizacionDetalle: 50,
@@ -186,10 +267,11 @@ export async function startSession(req, res) {
       mode: session.mode,
       candidateName: session.candidateName,
       cvAnalysis: session.cvAnalysis,
-      totalScenarios: orderedScenarios.length,
+      totalScenarios: sessionScenarios.length,
+      aiScenariosCount: customAiScenarios.length,
       currentIndex: 0,
       competencies: getCompetenciesPlain(session),
-      currentScenario: sanitizeScenarioForClient(orderedScenarios[0], focusCompetencies),
+      currentScenario: sanitizeScenarioForClient(sessionScenarios[0], focusCompetencies),
     });
   } catch (error) {
     console.error('[startSession] Error:', error);
@@ -217,16 +299,11 @@ export async function submitAnswer(req, res) {
       return res.status(400).json({ error: 'La simulación ya fue finalizada.' });
     }
 
-    const expectedScenarioId = session.scenarioIds[session.currentIndex]?.toString();
-    if (!expectedScenarioId || expectedScenarioId !== String(scenarioId)) {
+    const scenario = session.sessionScenarios?.[session.currentIndex];
+    if (!scenario || String(scenario.scenarioKey) !== String(scenarioId)) {
       return res.status(409).json({
         error: 'El escenario enviado no corresponde a la ronda actual de la sesión.',
       });
-    }
-
-    const scenario = await getScenarioById(scenarioId);
-    if (!scenario) {
-      return res.status(404).json({ error: 'Escenario no encontrado.' });
     }
 
     const chosenOption = scenario.options.find((opt) => opt.id === optionId);
@@ -252,7 +329,7 @@ export async function submitAnswer(req, res) {
     };
 
     session.answers.push({
-      scenarioId: scenario._id,
+      scenarioId: scenario.scenarioKey,
       scenarioCode: scenario.code,
       scenarioTitle: scenario.title,
       primaryCompetency: scenario.primaryCompetency,
@@ -268,15 +345,14 @@ export async function submitAnswer(req, res) {
     session.currentIndex += 1;
     await saveSessionRecord(session);
 
-    const isFinished = session.currentIndex >= session.scenarioIds.length;
-    let nextScenario = null;
-    if (!isFinished) {
-      const nextDoc = await getScenarioById(session.scenarioIds[session.currentIndex]);
-      nextScenario = sanitizeScenarioForClient(
-        nextDoc,
-        session.cvAnalysis?.focusCompetencies || []
-      );
-    }
+    const totalScenarios = session.sessionScenarios.length;
+    const isFinished = session.currentIndex >= totalScenarios;
+    const nextScenario = isFinished
+      ? null
+      : sanitizeScenarioForClient(
+          session.sessionScenarios[session.currentIndex],
+          session.cvAnalysis?.focusCompetencies || []
+        );
 
     return res.json({
       feedback: chosenOption.feedback,
@@ -284,7 +360,7 @@ export async function submitAnswer(req, res) {
       impact,
       competencies: getCompetenciesPlain(session),
       answeredCount: session.answers.length,
-      totalScenarios: session.scenarioIds.length,
+      totalScenarios,
       isFinished,
       nextScenario,
     });
@@ -352,18 +428,18 @@ export async function getSession(req, res) {
       return res.json(buildFinishPayload(session));
     }
 
-    const currentDoc = await getScenarioById(session.scenarioIds[session.currentIndex]);
+    const currentScenarioObj = session.sessionScenarios?.[session.currentIndex];
     return res.json({
       sessionId: session._id,
       mode: session.mode,
       status: session.status,
       candidateName: session.candidateName,
       cvAnalysis: session.cvAnalysis,
-      totalScenarios: session.scenarioIds.length,
+      totalScenarios: session.sessionScenarios?.length || 10,
       currentIndex: session.currentIndex,
       competencies: getCompetenciesPlain(session),
       currentScenario: sanitizeScenarioForClient(
-        currentDoc,
+        currentScenarioObj,
         session.cvAnalysis?.focusCompetencies || []
       ),
     });
@@ -375,6 +451,7 @@ export async function getSession(req, res) {
 
 function buildFinishPayload(session) {
   const optimalCount = session.answers.filter((a) => a.isOptimal).length;
+  const totalScenarios = session.sessionScenarios?.length || session.scenarioIds?.length || 10;
   return {
     sessionId: session._id,
     mode: session.mode,
@@ -384,7 +461,7 @@ function buildFinishPayload(session) {
     finalScore: session.finalScore,
     competencies: getCompetenciesPlain(session),
     stats: {
-      totalScenarios: session.scenarioIds.length,
+      totalScenarios,
       answeredCount: session.answers.length,
       optimalCount,
     },
