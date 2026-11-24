@@ -251,7 +251,7 @@ export function ResultReport({ result, onRestart }) {
             </h2>
             <p className="text-xs text-slate-500">
               {finalReport?.usedAi
-                ? 'Generado con Gemini Flash cruzando tu CV y tu desempeño en la simulación'
+                ? `Generado con ${finalReport.aiProvider || 'IA'} cruzando tu CV y tu desempeño en la simulación`
                 : 'Generado con motor de evaluación institucional de IZET S.A.'}
             </p>
           </div>

@@ -80,7 +80,8 @@ export function GameBoard({
                 <Sparkles className="h-4 w-4" />
               </span>
               <span className="text-xs font-bold text-slate-900">
-                Diagnóstico del CV ({cvAnalysis.usedAi ? 'Gemini Flash' : 'Análisis institucional'})
+                Diagnóstico del CV (
+                {cvAnalysis.usedAi ? cvAnalysis.aiProvider || 'IA' : 'Análisis institucional'})
               </span>
               {cvAnalysis.requirementsFit?.overallFitLevel && (
                 <span

@@ -1,64 +1,13 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { matchSampleCv } from '../data/sampleCvsData.js';
 
-const FALLBACK_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-];
-const MODEL_NAME = (process.env.GEMINI_MODEL || FALLBACK_MODELS[0]).trim();
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function generateJsonWithFallback(ai, { contents, responseSchema, temperature }) {
-  const modelsToTry = Array.from(new Set([MODEL_NAME, ...FALLBACK_MODELS]));
-
-  let lastError;
-  for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema,
-            temperature,
-          },
-        });
-        console.log(`[GeminiService] Respuesta exitosa con modelo ${model}`);
-        return JSON.parse(response.text);
-      } catch (error) {
-        lastError = error;
-        const msg = String(error?.message || '');
-        const isModelNotFound = error?.status === 404 || msg.includes('NOT_FOUND');
-        const isTransient =
-          error?.status === 503 ||
-          error?.status === 429 ||
-          msg.includes('UNAVAILABLE') ||
-          msg.includes('RESOURCE_EXHAUSTED');
-
-        if (isTransient && attempt === 0) {
-          console.warn(
-            `[GeminiService] Demanda alta en ${model}. Reintentando en 1000ms antes de pasar al siguiente modelo...`
-          );
-          await sleep(1000);
-          continue;
-        }
-
-        if (isModelNotFound || isTransient) {
-          console.warn(
-            `[GeminiService] ${model} no disponible (${error?.status || 'error'}), probando siguiente modelo de la cascada...`
-          );
-          break;
-        }
-
-        throw error;
-      }
-    }
-  }
-  throw lastError;
-}
+const GEMINI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+const GEMINI_MODEL = (process.env.GEMINI_MODEL || GEMINI_FALLBACK_MODELS[0]).trim();
+const GROQ_MODEL = (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile').trim();
+const MISTRAL_MODEL = (process.env.MISTRAL_MODEL || 'mistral-small-latest').trim();
+const OPENROUTER_MODEL = (
+  process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free'
+).trim();
 
 const JOB_PROFILE_CONTEXT = `
 Institución: IZET S.A. (atención educativa y terapéutica a niños, niñas y jóvenes con discapacidad a través del Centro Educativo Terapéutico - CET - y el Servicio de Apoyo a la Integración Escolar - SAIE).
@@ -97,12 +46,110 @@ const COMPETENCY_LABELS = {
   comunicacionServicio: 'Comunicación y Servicio',
 };
 
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey || apiKey === 'tu_api_key_de_gemini_aqui') {
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
+const VALID_COMPETENCIES = Object.keys(COMPETENCY_LABELS);
+
+function getKey(name) {
+  const val = process.env[name]?.trim();
+  if (!val || val.startsWith('tu_api_key')) return null;
+  return val;
+}
+
+export function getConfiguredProviders() {
+  return {
+    gemini: Boolean(getKey('GEMINI_API_KEY')),
+    groq: Boolean(getKey('GROQ_API_KEY')),
+    mistral: Boolean(getKey('MISTRAL_API_KEY')),
+    openrouter: Boolean(getKey('OPENROUTER_API_KEY')),
+  };
+}
+
+function parseJsonSafe(rawText) {
+  const cleaned = String(rawText || '')
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  return JSON.parse(cleaned);
+}
+
+function pickEnum(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function toStringArray(value, fallback = []) {
+  if (!Array.isArray(value)) return fallback;
+  return value.map((item) => String(item || '').trim()).filter(Boolean);
+}
+
+function normalizeCvAnalysis(parsed, aiProvider) {
+  const fit = parsed?.requirementsFit || {};
+  const focus = toStringArray(parsed?.focusCompetencies).filter((c) =>
+    VALID_COMPETENCIES.includes(c)
+  );
+
+  return {
+    usedAi: true,
+    aiProvider,
+    fallbackReason: null,
+    candidate: {
+      fullName: String(parsed?.candidate?.fullName || 'Postulante').trim(),
+      currentRoleOrStudies: String(
+        parsed?.candidate?.currentRoleOrStudies || 'Postulante a Auxiliar Administrativo/a'
+      ).trim(),
+      summary: String(parsed?.candidate?.summary || '').trim(),
+    },
+    requirementsFit: {
+      secondaryComplete: pickEnum(
+        fit.secondaryComplete,
+        ['si', 'no', 'no_especificado'],
+        'no_especificado'
+      ),
+      relatedStudies: pickEnum(
+        fit.relatedStudies,
+        ['si', 'en_curso', 'no', 'no_especificado'],
+        'no_especificado'
+      ),
+      adminExperience: pickEnum(
+        fit.adminExperience,
+        ['alta', 'media', 'basica', 'ninguna'],
+        'basica'
+      ),
+      officeExcel: pickEnum(
+        fit.officeExcel,
+        ['avanzado', 'intermedio', 'basico', 'no_especificado'],
+        'no_especificado'
+      ),
+      overallFitLevel: pickEnum(
+        fit.overallFitLevel,
+        ['alto', 'medio', 'en_desarrollo'],
+        'medio'
+      ),
+      fitScore: Math.min(100, Math.max(0, Math.round(Number(fit.fitScore ?? 50)))),
+    },
+    strengths: toStringArray(parsed?.strengths, [
+      'Interés en incorporarse al Departamento de Recursos Humanos de IZET S.A.',
+    ]),
+    challengeAreas: toStringArray(parsed?.challengeAreas, [
+      'Validar criterio administrativo y confidencialidad en escenarios prácticos.',
+    ]),
+    focusCompetencies: focus.length > 0 ? focus : ['organizacionDetalle', 'confidencialidadEtica'],
+  };
+}
+
+function normalizeFinalReport(parsed, aiProvider) {
+  return {
+    usedAi: true,
+    aiProvider,
+    performanceLevel: String(parsed?.performanceLevel || 'Evaluación completada').trim(),
+    executiveSummary: String(parsed?.executiveSummary || '').trim(),
+    cvCoincidences: toStringArray(parsed?.cvCoincidences),
+    gaps: toStringArray(parsed?.gaps),
+    recommendations: toStringArray(parsed?.recommendations),
+    closingNote: String(
+      parsed?.closingNote ||
+        'Este reporte es orientativo y refleja el desempeño simulado frente a situaciones cotidianas del Departamento de RR.HH. de IZET S.A.'
+    ).trim(),
+  };
 }
 
 const cvAnalysisResponseSchema = {
@@ -120,26 +167,14 @@ const cvAnalysisResponseSchema = {
     requirementsFit: {
       type: Type.OBJECT,
       properties: {
-        secondaryComplete: {
-          type: Type.STRING,
-          enum: ['si', 'no', 'no_especificado'],
-        },
-        relatedStudies: {
-          type: Type.STRING,
-          enum: ['si', 'en_curso', 'no', 'no_especificado'],
-        },
-        adminExperience: {
-          type: Type.STRING,
-          enum: ['alta', 'media', 'basica', 'ninguna'],
-        },
+        secondaryComplete: { type: Type.STRING, enum: ['si', 'no', 'no_especificado'] },
+        relatedStudies: { type: Type.STRING, enum: ['si', 'en_curso', 'no', 'no_especificado'] },
+        adminExperience: { type: Type.STRING, enum: ['alta', 'media', 'basica', 'ninguna'] },
         officeExcel: {
           type: Type.STRING,
           enum: ['avanzado', 'intermedio', 'basico', 'no_especificado'],
         },
-        overallFitLevel: {
-          type: Type.STRING,
-          enum: ['alto', 'medio', 'en_desarrollo'],
-        },
+        overallFitLevel: { type: Type.STRING, enum: ['alto', 'medio', 'en_desarrollo'] },
         fitScore: { type: Type.INTEGER },
       },
       required: [
@@ -151,34 +186,14 @@ const cvAnalysisResponseSchema = {
         'fitScore',
       ],
     },
-    strengths: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    challengeAreas: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
+    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+    challengeAreas: { type: Type.ARRAY, items: { type: Type.STRING } },
     focusCompetencies: {
       type: Type.ARRAY,
-      items: {
-        type: Type.STRING,
-        enum: [
-          'organizacionDetalle',
-          'gestionDatos',
-          'confidencialidadEtica',
-          'comunicacionServicio',
-        ],
-      },
+      items: { type: Type.STRING, enum: VALID_COMPETENCIES },
     },
   },
-  required: [
-    'candidate',
-    'requirementsFit',
-    'strengths',
-    'challengeAreas',
-    'focusCompetencies',
-  ],
+  required: ['candidate', 'requirementsFit', 'strengths', 'challengeAreas', 'focusCompetencies'],
 };
 
 const finalReportResponseSchema = {
@@ -186,18 +201,9 @@ const finalReportResponseSchema = {
   properties: {
     performanceLevel: { type: Type.STRING },
     executiveSummary: { type: Type.STRING },
-    cvCoincidences: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    gaps: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    recommendations: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
+    cvCoincidences: { type: Type.ARRAY, items: { type: Type.STRING } },
+    gaps: { type: Type.ARRAY, items: { type: Type.STRING } },
+    recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
     closingNote: { type: Type.STRING },
   },
   required: [
@@ -210,11 +216,237 @@ const finalReportResponseSchema = {
   ],
 };
 
+/**
+ * Extrae texto de PDFs escaneados (como CamScanner) usando Mistral OCR si MISTRAL_API_KEY existe.
+ */
+export async function extractPdfTextWithOcr(pdfBuffer) {
+  const mistralKey = getKey('MISTRAL_API_KEY');
+  if (!mistralKey || !pdfBuffer) return '';
+
+  try {
+    const base64 = pdfBuffer.toString('base64');
+    const response = await fetch('https://api.mistral.ai/v1/ocr', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${mistralKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-ocr-latest',
+        document: {
+          type: 'document_url',
+          document_url: `data:application/pdf;base64,${base64}`,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`[AIService] Mistral OCR falló (${response.status}):`, errText.slice(0, 200));
+      return '';
+    }
+
+    const data = await response.json();
+    const extracted = (data?.pages || [])
+      .map((p) => p.markdown || '')
+      .join('\n\n')
+      .trim();
+
+    if (extracted) {
+      console.log(`[AIService] Mistral OCR extrajo ${extracted.length} caracteres del PDF escaneado.`);
+    }
+    return extracted;
+  } catch (error) {
+    console.warn('[AIService] Error en Mistral OCR:', error.message);
+    return '';
+  }
+}
+
+async function callGemini({ prompt, responseSchema, temperature, pdfBuffer }) {
+  const apiKey = getKey('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY no configurada');
+
+  const ai = new GoogleGenAI({ apiKey });
+  const modelsToTry = Array.from(new Set([GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS]));
+
+  const contents = pdfBuffer
+    ? [
+        {
+          inlineData: {
+            mimeType: 'application/pdf',
+            data: pdfBuffer.toString('base64'),
+          },
+        },
+        prompt,
+      ]
+    : prompt;
+
+  let lastError;
+  for (const model of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema,
+          temperature,
+        },
+      });
+      console.log(`[AIService] Respuesta exitosa con Gemini (${model})`);
+      return { data: parseJsonSafe(response.text), provider: `Gemini (${model})` };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[AIService] Gemini ${model} falló:`, error?.status || error?.message);
+    }
+  }
+  throw lastError;
+}
+
+async function callOpenAiCompatible({
+  providerName,
+  endpoint,
+  apiKey,
+  model,
+  prompt,
+  temperature,
+  extraHeaders = {},
+  pdfBase64 = null,
+}) {
+  const userContent = pdfBase64
+    ? [
+        { type: 'text', text: prompt },
+        {
+          type: 'file',
+          file: {
+            filename: 'cv.pdf',
+            file_data: `data:application/pdf;base64,${pdfBase64}`,
+          },
+        },
+      ]
+    : prompt;
+
+  const body = {
+    model,
+    temperature,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Sos un especialista en selección de RR.HH. de IZET S.A. Respondé SIEMPRE con un único objeto JSON válido en español rioplatense, sin texto adicional ni markdown.',
+      },
+      { role: 'user', content: userContent },
+    ],
+  };
+
+  if (pdfBase64 && providerName === 'OpenRouter') {
+    body.plugins = [{ id: 'file-parser', pdf: { engine: 'mistral-ocr' } }];
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`${providerName} HTTP ${response.status}: ${errText.slice(0, 220)}`);
+  }
+
+  const json = await response.json();
+  const content = json?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`${providerName} devolvió una respuesta vacía.`);
+  }
+
+  console.log(`[AIService] Respuesta exitosa con ${providerName} (${model})`);
+  return { data: parseJsonSafe(content), provider: providerName };
+}
+
+async function runProviderCascade({ prompt, responseSchema, temperature, pdfBuffer = null, hasText = true }) {
+  const providers = [];
+
+  if (getKey('GEMINI_API_KEY')) {
+    providers.push({
+      name: 'Gemini',
+      fn: () => callGemini({ prompt, responseSchema, temperature, pdfBuffer: hasText ? null : pdfBuffer }),
+    });
+  }
+
+  if (getKey('GROQ_API_KEY') && hasText) {
+    providers.push({
+      name: 'Groq',
+      fn: () =>
+        callOpenAiCompatible({
+          providerName: 'Groq',
+          endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+          apiKey: getKey('GROQ_API_KEY'),
+          model: GROQ_MODEL,
+          prompt,
+          temperature,
+        }),
+    });
+  }
+
+  if (getKey('MISTRAL_API_KEY') && hasText) {
+    providers.push({
+      name: 'Mistral',
+      fn: () =>
+        callOpenAiCompatible({
+          providerName: 'Mistral',
+          endpoint: 'https://api.mistral.ai/v1/chat/completions',
+          apiKey: getKey('MISTRAL_API_KEY'),
+          model: MISTRAL_MODEL,
+          prompt,
+          temperature,
+        }),
+    });
+  }
+
+  if (getKey('OPENROUTER_API_KEY')) {
+    providers.push({
+      name: 'OpenRouter',
+      fn: () =>
+        callOpenAiCompatible({
+          providerName: 'OpenRouter',
+          endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          apiKey: getKey('OPENROUTER_API_KEY'),
+          model: OPENROUTER_MODEL,
+          prompt,
+          temperature,
+          pdfBase64: !hasText && pdfBuffer ? pdfBuffer.toString('base64') : null,
+          extraHeaders: {
+            'HTTP-Referer': process.env.CLIENT_ORIGIN || 'https://simulador-rrhh.vercel.app',
+            'X-Title': 'IZET S.A. Simulador RRHH',
+          },
+        }),
+    });
+  }
+
+  let lastError = new Error('No hay proveedores de IA configurados.');
+  for (const provider of providers) {
+    try {
+      return await provider.fn();
+    } catch (error) {
+      lastError = error;
+      console.warn(`[AIService] Falló ${provider.name}, pasando al siguiente proveedor:`, error.message);
+    }
+  }
+  throw lastError;
+}
+
 function heuristicCvAnalysis(cvText, fallbackReason) {
   const matchedSample = matchSampleCv(cvText);
   if (matchedSample) {
     return {
       usedAi: false,
+      aiProvider: null,
       fallbackReason,
       ...matchedSample.fallbackAnalysis,
     };
@@ -293,6 +525,7 @@ function heuristicCvAnalysis(cvText, fallbackReason) {
 
   return {
     usedAi: false,
+    aiProvider: null,
     fallbackReason,
     candidate: {
       fullName: firstLine,
@@ -385,19 +618,20 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
       );
     }
   } else if (session.mode === 'cv' && session.cvAnalysis) {
-    if (session.cvAnalysis.requirementsFit?.officeExcel !== 'no_especificado' && competencyScores.gestionDatos >= 65) {
+    if (
+      session.cvAnalysis.requirementsFit?.officeExcel !== 'no_especificado' &&
+      competencyScores.gestionDatos >= 65
+    ) {
       cvCoincidences.push(
         'El manejo de herramientas informáticas declarado en el CV se reflejó positivamente en la gestión de planillas y bases de datos.'
       );
     }
-    if (session.cvAnalysis.requirementsFit?.adminExperience !== 'ninguna' && competencyScores.organizacionDetalle >= 65) {
+    if (
+      session.cvAnalysis.requirementsFit?.adminExperience !== 'ninguna' &&
+      competencyScores.organizacionDetalle >= 65
+    ) {
       cvCoincidences.push(
         'La experiencia administrativa previa se validó en el criterio para controlar legajos y documentación mensual.'
-      );
-    }
-    if (cvCoincidences.length === 0) {
-      cvCoincidences.push(
-        `Se confirmó solidez principal en ${COMPETENCY_LABELS[topComp[0]]} (${topComp[1]}/100) durante los casos prácticos de IZET S.A.`
       );
     }
   } else {
@@ -434,6 +668,7 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
 
   return {
     usedAi: false,
+    aiProvider: null,
     performanceLevel,
     executiveSummary: `${session.candidateName} completó la simulación del puesto de Auxiliar Administrativo/a de RR.HH. en IZET S.A. con un puntaje global de ${finalScore}/100 (${optimalCount}/${totalCount} decisiones óptimas). Su punto más fuerte fue ${COMPETENCY_LABELS[topComp[0]]} y el área prioritaria a seguir fortaleciendo es ${COMPETENCY_LABELS[lowComp[0]]}.`,
     cvCoincidences,
@@ -444,18 +679,12 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
   };
 }
 
-export async function analyzeCV(cvText) {
+export async function analyzeCV(cvText, { pdfBuffer = null } = {}) {
   const cleanText = String(cvText || '').trim().slice(0, 12000);
-  if (!cleanText) {
-    return heuristicCvAnalysis('', 'Texto de CV vacío.');
-  }
+  const hasText = cleanText.length >= 25;
 
-  const ai = getClient();
-  if (!ai) {
-    return heuristicCvAnalysis(
-      cleanText,
-      'GEMINI_API_KEY no configurada; se utilizó análisis automático local.'
-    );
+  if (!hasText && !pdfBuffer) {
+    return heuristicCvAnalysis('', 'Texto de CV vacío.');
   }
 
   const prompt = `
@@ -465,50 +694,52 @@ Analizá el siguiente CV en función ESTRICTA del perfil del puesto provisto. No
 PERFIL DEL PUESTO:
 ${JOB_PROFILE_CONTEXT}
 
-CV DEL POSTULANTE:
-"""
-${cleanText}
-"""
+${
+  hasText
+    ? `CV DEL POSTULANTE:\n"""\n${cleanText}\n"""`
+    : 'El CV del postulante se adjunta como documento PDF. Extraé toda su información directamente del archivo.'
+}
 
-Instrucciones:
-- Respondé exclusivamente en español rioplatense profesional y claro.
-- Evaluá de manera objetiva: secundario completo, estudios afines, experiencia administrativa y manejo de Office/Excel.
-- Indicá 2 a 4 fortalezas concretas detectadas en el CV.
-- Indicá 2 a 3 áreas a desafiar o validar durante la simulación práctica.
-- En focusCompetencies devolvé 1 o 2 claves exactas de competencias prioritarias a poner a prueba.
-- fitScore debe ser un entero entre 0 y 100 coherente con los requisitos del puesto.
+Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
+{
+  "candidate": {
+    "fullName": "Nombre y apellido detectados",
+    "currentRoleOrStudies": "Rol actual o estudios principales",
+    "summary": "Resumen ejecutivo de 2 oraciones sobre el encaje con IZET S.A."
+  },
+  "requirementsFit": {
+    "secondaryComplete": "si | no | no_especificado",
+    "relatedStudies": "si | en_curso | no | no_especificado",
+    "adminExperience": "alta | media | basica | ninguna",
+    "officeExcel": "avanzado | intermedio | basico | no_especificado",
+    "overallFitLevel": "alto | medio | en_desarrollo",
+    "fitScore": 0
+  },
+  "strengths": ["2 a 4 fortalezas concretas detectadas en el CV"],
+  "challengeAreas": ["2 a 3 áreas a desafiar durante la simulación práctica"],
+  "focusCompetencies": ["1 o 2 claves exactas entre: organizacionDetalle, gestionDatos, confidencialidadEtica, comunicacionServicio"]
+}
 `;
 
   try {
-    const parsed = await generateJsonWithFallback(ai, {
-      contents: prompt,
+    const { data, provider } = await runProviderCascade({
+      prompt,
       responseSchema: cvAnalysisResponseSchema,
       temperature: 0.2,
+      pdfBuffer,
+      hasText,
     });
-    return {
-      usedAi: true,
-      fallbackReason: null,
-      ...parsed,
-      requirementsFit: {
-        ...parsed.requirementsFit,
-        fitScore: Math.min(100, Math.max(0, Number(parsed.requirementsFit?.fitScore ?? 50))),
-      },
-    };
+    return normalizeCvAnalysis(data, provider);
   } catch (error) {
-    console.warn('[GeminiService] Falló analyzeCV, activando fallback:', error.message);
+    console.warn('[AIService] Todos los proveedores de IA fallaron en analyzeCV:', error.message);
     return heuristicCvAnalysis(
       cleanText,
-      'Servicio de IA temporalmente no disponible; se utilizó análisis local de respaldo.'
+      'Servicios de IA temporalmente no disponibles; se utilizó análisis institucional de respaldo.'
     );
   }
 }
 
 export async function generateFinalReport({ session, competencyScores, finalScore }) {
-  const ai = getClient();
-  if (!ai) {
-    return deterministicFinalReport(session, competencyScores, finalScore);
-  }
-
   const answersSummary = session.answers.map((a, idx) => ({
     ronda: idx + 1,
     escenario: a.scenarioTitle,
@@ -553,24 +784,34 @@ ${JSON.stringify(answersSummary, null, 2)}
 
 Reglas estrictas:
 - No inventes políticas, beneficios ni requisitos ajenos al perfil de IZET S.A.
+- No incluyas llamados a enviar CV ni a postularse por correo.
 - Si hubo CV, cruzá explícitamente lo declarado en el CV con el desempeño real en los escenarios (coincidencias confirmadas y brechas).
 - Si fue modo estándar, detallá hallazgos clave del desempeño en cvCoincidences y oportunidades en gaps.
-- Incluí 3 recomendaciones prácticas y concretas aplicables al día a día en el Depto. de RR.HH. de IZET S.A.
-- Tono: profesional, empático, institucional y directo (español rioplatense).
+
+Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
+{
+  "performanceLevel": "Etiqueta breve del nivel alcanzado",
+  "executiveSummary": "Resumen ejecutivo de 3 a 4 oraciones",
+  "cvCoincidences": ["2 a 3 puntos concretos"],
+  "gaps": ["2 a 3 brechas u oportunidades concretas"],
+  "recommendations": ["3 recomendaciones prácticas aplicables al día a día en RR.HH. de IZET S.A."],
+  "closingNote": "Breve nota de cierre orientativa"
+}
 `;
 
   try {
-    const parsed = await generateJsonWithFallback(ai, {
-      contents: prompt,
+    const { data, provider } = await runProviderCascade({
+      prompt,
       responseSchema: finalReportResponseSchema,
       temperature: 0.35,
+      hasText: true,
     });
-    return {
-      usedAi: true,
-      ...parsed,
-    };
+    return normalizeFinalReport(data, provider);
   } catch (error) {
-    console.warn('[GeminiService] Falló generateFinalReport, activando fallback:', error.message);
+    console.warn(
+      '[AIService] Todos los proveedores de IA fallaron en generateFinalReport:',
+      error.message
+    );
     return deterministicFinalReport(session, competencyScores, finalScore);
   }
 }

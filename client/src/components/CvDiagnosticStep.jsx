@@ -92,7 +92,9 @@ export function CvDiagnosticStep({ candidateName, cvAnalysis, totalScenarios, on
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-teal-200">
                 <Sparkles className="h-3.5 w-3.5" />
-                {cvAnalysis.usedAi ? 'Análisis con Gemini Flash' : 'Diagnóstico inicial del perfil'}
+                {cvAnalysis.usedAi
+                  ? `Análisis con ${cvAnalysis.aiProvider || 'IA'}`
+                  : 'Diagnóstico inicial del perfil'}
               </span>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${fitStyle.badge}`}

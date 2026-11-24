@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { connectDB, isDbConnected } from './config/db.js';
+import { getConfiguredProviders } from './services/geminiService.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 
 const app = express();
@@ -27,13 +28,13 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (_req, res) => {
+  const aiProviders = getConfiguredProviders();
   res.json({
     status: 'ok',
     service: 'IZET S.A. - Simulador Auxiliar Administrativo/a de RR.HH.',
     storage: isDbConnected() ? 'mongodb' : 'memory-fallback',
-    geminiConfigured: Boolean(
-      process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'tu_api_key_de_gemini_aqui'
-    ),
+    aiProviders,
+    geminiConfigured: aiProviders.gemini,
   });
 });
 

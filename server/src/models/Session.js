@@ -34,6 +34,7 @@ const answerSchema = new mongoose.Schema(
 const cvAnalysisSchema = new mongoose.Schema(
   {
     usedAi: { type: Boolean, default: false },
+    aiProvider: { type: String, default: null },
     fallbackReason: { type: String, default: null },
     candidate: {
       fullName: { type: String, default: 'Postulante' },
@@ -81,6 +82,7 @@ const cvAnalysisSchema = new mongoose.Schema(
 const finalReportSchema = new mongoose.Schema(
   {
     usedAi: { type: Boolean, default: false },
+    aiProvider: { type: String, default: null },
     performanceLevel: { type: String, default: '' },
     executiveSummary: { type: String, default: '' },
     cvCoincidences: { type: [String], default: [] },

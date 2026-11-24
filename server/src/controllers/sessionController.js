@@ -4,7 +4,11 @@ import { isDbConnected } from '../config/db.js';
 import { Scenario } from '../models/Scenario.js';
 import { Session } from '../models/Session.js';
 import { SCENARIOS_DATA } from '../data/scenariosData.js';
-import { analyzeCV, generateFinalReport } from '../services/geminiService.js';
+import {
+  analyzeCV,
+  extractPdfTextWithOcr,
+  generateFinalReport,
+} from '../services/geminiService.js';
 import { seedScenarios } from '../seed.js';
 
 const require = createRequire(import.meta.url);
@@ -95,31 +99,53 @@ export async function startSession(req, res) {
     const rawCandidateName = (req.body?.candidateName || '').trim();
     let cvText = (req.body?.cvText || '').trim();
     let cvSource = 'none';
+    let pdfBuffer = null;
 
     if (req.file) {
+      pdfBuffer = req.file.buffer;
+      cvSource = 'pdf';
       try {
         const parsedPdf = await pdfParse(req.file.buffer);
-        cvText = (parsedPdf?.text || '').trim();
-        cvSource = 'pdf';
+        const rawPdfText = (parsedPdf?.text || '').trim();
+        // Descarta marcas de agua de escáner (ej. "CamScanner") sin texto real
+        const meaningfulText = rawPdfText.replace(/camscanner/gi, '').trim();
+        if (meaningfulText.length >= 40) {
+          cvText = rawPdfText;
+        } else {
+          console.log(
+            '[PDF] PDF escaneado detectado (sin texto seleccionable). Intentando Mistral OCR...'
+          );
+          const ocrText = await extractPdfTextWithOcr(req.file.buffer);
+          if (ocrText.length >= 40) {
+            cvText = ocrText;
+          }
+        }
       } catch (pdfError) {
-        console.warn('[PDF] No se pudo extraer texto del PDF:', pdfError.message);
-        return res.status(400).json({
-          error:
-            'No pudimos leer el texto del archivo PDF. Verificá que no esté protegido o escaneado como imagen, o pegá el texto de tu CV.',
-        });
+        console.warn('[PDF] Error en pdf-parse, intentando Mistral OCR / IA multimodal:', pdfError.message);
+        const ocrText = await extractPdfTextWithOcr(req.file.buffer);
+        if (ocrText.length >= 40) {
+          cvText = ocrText;
+        }
       }
     } else if (cvText) {
       cvSource = 'text';
     }
 
-    const effectiveMode = requestedMode === 'cv' && cvText.length >= 20 ? 'cv' : 'standard';
+    const effectiveMode =
+      requestedMode === 'cv' && (cvText.length >= 20 || Boolean(pdfBuffer)) ? 'cv' : 'standard';
     const scenarios = await getAllScenarios();
 
     let cvAnalysis = null;
     let candidateName = rawCandidateName || 'Postulante';
 
     if (effectiveMode === 'cv') {
-      cvAnalysis = await analyzeCV(cvText);
+      cvAnalysis = await analyzeCV(cvText, { pdfBuffer });
+      if (!cvText && !cvAnalysis.usedAi) {
+        return res.status(400).json({
+          error:
+            'El PDF cargado parece estar escaneado como imagen y los servicios de OCR/IA no estuvieron disponibles en este momento. Probá con un PDF con texto seleccionable, pegá el texto o elegí uno de los CVs de muestra.',
+        });
+      }
       if (!rawCandidateName && cvAnalysis?.candidate?.fullName) {
         candidateName = cvAnalysis.candidate.fullName;
       }
