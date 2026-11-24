@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Header } from './components/Header.jsx';
 import { LandingCV } from './components/LandingCV.jsx';
+import { CvDiagnosticStep } from './components/CvDiagnosticStep.jsx';
 import { GameBoard } from './components/GameBoard.jsx';
 import { ResultReport } from './components/ResultReport.jsx';
 import { startSession, submitAnswer, finishSession } from './services/api.js';
 
 export default function App() {
-  const [phase, setPhase] = useState('landing'); // 'landing' | 'playing' | 'results'
+  const [phase, setPhase] = useState('landing'); // 'landing' | 'diagnostic' | 'playing' | 'results'
   const [isLoadingStart, setIsLoadingStart] = useState(false);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -50,13 +51,18 @@ export default function App() {
       setSelectedOptionId(null);
       setFeedbackState(null);
       setFinalResult(null);
-      setPhase('playing');
+      setPhase(data.mode === 'cv' && data.cvAnalysis ? 'diagnostic' : 'playing');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err.message || 'No se pudo iniciar la simulación.');
     } finally {
       setIsLoadingStart(false);
     }
+  };
+
+  const handleContinueFromDiagnostic = () => {
+    setPhase('playing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAnswer = async (optionId) => {
@@ -132,6 +138,15 @@ export default function App() {
       <main className="flex-1">
         {phase === 'landing' && (
           <LandingCV onStart={handleStart} isLoading={isLoadingStart} error={error} />
+        )}
+
+        {phase === 'diagnostic' && (
+          <CvDiagnosticStep
+            candidateName={candidateName}
+            cvAnalysis={cvAnalysis}
+            totalScenarios={totalScenarios}
+            onContinue={handleContinueFromDiagnostic}
+          />
         )}
 
         {phase === 'playing' && (

@@ -1,7 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { matchSampleCv } from '../data/sampleCvsData.js';
 
 const DEFAULT_MODEL = 'gemini-3.8-flash';
 const MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function generateJsonWithFallback(ai, { contents, responseSchema, temperature }) {
   const modelsToTry =
@@ -9,25 +12,44 @@ async function generateJsonWithFallback(ai, { contents, responseSchema, temperat
 
   let lastError;
   for (const model of modelsToTry) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema,
-          temperature,
-        },
-      });
-      return JSON.parse(response.text);
-    } catch (error) {
-      lastError = error;
-      const isModelNotFound =
-        error?.status === 404 || String(error?.message || '').includes('NOT_FOUND');
-      if (!isModelNotFound) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema,
+            temperature,
+          },
+        });
+        return JSON.parse(response.text);
+      } catch (error) {
+        lastError = error;
+        const msg = String(error?.message || '');
+        const isModelNotFound = error?.status === 404 || msg.includes('NOT_FOUND');
+        const isTransient =
+          error?.status === 503 ||
+          error?.status === 429 ||
+          msg.includes('UNAVAILABLE') ||
+          msg.includes('RESOURCE_EXHAUSTED');
+
+        if (isTransient && attempt < 2) {
+          const delayMs = 1200 * (attempt + 1);
+          console.warn(
+            `[GeminiService] Demanda alta en ${model} (intento ${attempt + 1}/3). Reintentando en ${delayMs}ms...`
+          );
+          await sleep(delayMs);
+          continue;
+        }
+
+        if (isModelNotFound) {
+          console.warn(`[GeminiService] Modelo ${model} no disponible, intentando fallback...`);
+          break;
+        }
+
         throw error;
       }
-      console.warn(`[GeminiService] Modelo ${model} no disponible, intentando fallback...`);
     }
   }
   throw lastError;
@@ -184,6 +206,15 @@ const finalReportResponseSchema = {
 };
 
 function heuristicCvAnalysis(cvText, fallbackReason) {
+  const matchedSample = matchSampleCv(cvText);
+  if (matchedSample) {
+    return {
+      usedAi: false,
+      fallbackReason,
+      ...matchedSample.fallbackAnalysis,
+    };
+  }
+
   const normalized = cvText.toLowerCase();
   const firstLine =
     cvText
@@ -298,7 +329,57 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
   const totalCount = session.answers.length || 10;
 
   const cvCoincidences = [];
-  if (session.mode === 'cv' && session.cvAnalysis) {
+  const gaps = [];
+  const matchedSample = matchSampleCv(session.cvRawText || session.candidateName);
+
+  if (matchedSample?.id === 'sofia_martinez') {
+    if (competencyScores.organizacionDetalle >= 65) {
+      cvCoincidences.push(
+        'Su experiencia administrativa en Centro Integral Plus y el Estudio Contable Gómez & Asociados se confirmó con criterio sólido en legajos y control documental.'
+      );
+    } else {
+      gaps.push(
+        'A pesar de declarar experiencia en gestión de documentación y archivos, en la simulación hubo margen para reforzar controles preventivos de legajos y liquidación.'
+      );
+    }
+    if (competencyScores.gestionDatos >= 65) {
+      cvCoincidences.push(
+        'El curso de Excel aplicado a la administración (2024) y manejo intermedio-avanzado de Office se reflejaron en un buen manejo de planillas y bases de datos.'
+      );
+    } else {
+      gaps.push(
+        'Declaró Office intermedio-avanzado y curso de Excel (2024), pero se detectaron desvíos en la depuración de bases de datos y control de planillas mensuales.'
+      );
+    }
+    if (competencyScores.confidencialidadEtica >= 70) {
+      cvCoincidences.push(
+        'Validó en la práctica la competencia de confidencialidad y responsabilidad declarada en su CV frente a solicitudes sensibles de legajos.'
+      );
+    } else {
+      gaps.push(
+        'Reforzar el resguardo estricto de datos personales en legajos y reportes compartidos con otras áreas, clave para su formación en Tecnicatura en RR.HH.'
+      );
+    }
+  } else if (matchedSample?.id === 'camila_rodriguez') {
+    if (competencyScores.comunicacionServicio >= 65) {
+      cvCoincidences.push(
+        'Su trayectoria como Profesional de Apoyo a la Integración Escolar y Acompañante Terapéutica se reflejó en una muy buena comunicación y trabajo interdisciplinario con CET y SAIE.'
+      );
+    } else {
+      gaps.push(
+        'Aunque su perfil destaca empatía y trabajo interdisciplinario, en la simulación conviene estructurar aún más la comunicación operativa y los plazos con coordinadores.'
+      );
+    }
+    if (competencyScores.gestionDatos < 70 || competencyScores.organizacionDetalle < 70) {
+      gaps.push(
+        'Se confirmó la brecha prevista en su CV (Office básico y sin experiencia previa en RR.HH.): será prioritario capacitarse en Excel, bases de datos y armado de legajos.'
+      );
+    } else {
+      cvCoincidences.push(
+        'Superó las expectativas iniciales en tareas administrativas y de datos pese a declarar Office básico y un recorrido previo puramente educativo-terapéutico.'
+      );
+    }
+  } else if (session.mode === 'cv' && session.cvAnalysis) {
     if (session.cvAnalysis.requirementsFit?.officeExcel !== 'no_especificado' && competencyScores.gestionDatos >= 65) {
       cvCoincidences.push(
         'El manejo de herramientas informáticas declarado en el CV se reflejó positivamente en la gestión de planillas y bases de datos.'
@@ -323,9 +404,17 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
     );
   }
 
-  const gaps = [
-    `Oportunidad de mejora principal en ${COMPETENCY_LABELS[lowComp[0]]} (${lowComp[1]}/100), clave para la operatoria diaria entre RR.HH., CET y SAIE.`,
-  ];
+  if (cvCoincidences.length === 0) {
+    cvCoincidences.push(
+      `Desempeño destacado en ${COMPETENCY_LABELS[topComp[0]]} (${topComp[1]}/100) durante los escenarios prácticos de IZET S.A.`
+    );
+  }
+
+  if (gaps.length === 0) {
+    gaps.push(
+      `Oportunidad de mejora principal en ${COMPETENCY_LABELS[lowComp[0]]} (${lowComp[1]}/100), clave para la operatoria diaria entre RR.HH., CET y SAIE.`
+    );
+  }
   if (optimalCount < totalCount) {
     gaps.push(
       `En ${totalCount - optimalCount} escenario(s) hubo margen para aplicar controles más rigurosos o una comunicación más estructurada con coordinadores y profesionales.`
