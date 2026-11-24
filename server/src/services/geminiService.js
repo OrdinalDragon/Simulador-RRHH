@@ -1,6 +1,37 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
+const MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+
+async function generateJsonWithFallback(ai, { contents, responseSchema, temperature }) {
+  const modelsToTry =
+    MODEL_NAME === DEFAULT_MODEL ? [MODEL_NAME] : [MODEL_NAME, DEFAULT_MODEL];
+
+  let lastError;
+  for (const model of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema,
+          temperature,
+        },
+      });
+      return JSON.parse(response.text);
+    } catch (error) {
+      lastError = error;
+      const isModelNotFound =
+        error?.status === 404 || String(error?.message || '').includes('NOT_FOUND');
+      if (!isModelNotFound) {
+        throw error;
+      }
+      console.warn(`[GeminiService] Modelo ${model} no disponible, intentando fallback...`);
+    }
+  }
+  throw lastError;
+}
 
 const JOB_PROFILE_CONTEXT = `
 Institución: IZET S.A. (atención educativa y terapéutica a niños, niñas y jóvenes con discapacidad a través del Centro Educativo Terapéutico - CET - y el Servicio de Apoyo a la Integración Escolar - SAIE).
@@ -355,17 +386,11 @@ Instrucciones:
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
+    const parsed = await generateJsonWithFallback(ai, {
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: cvAnalysisResponseSchema,
-        temperature: 0.2,
-      },
+      responseSchema: cvAnalysisResponseSchema,
+      temperature: 0.2,
     });
-
-    const parsed = JSON.parse(response.text);
     return {
       usedAi: true,
       fallbackReason: null,
@@ -441,17 +466,11 @@ Reglas estrictas:
 `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
+    const parsed = await generateJsonWithFallback(ai, {
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: finalReportResponseSchema,
-        temperature: 0.35,
-      },
+      responseSchema: finalReportResponseSchema,
+      temperature: 0.35,
     });
-
-    const parsed = JSON.parse(response.text);
     return {
       usedAi: true,
       ...parsed,

@@ -11,9 +11,11 @@ import {
 import { COMPETENCY_META } from './CompetencyBars.jsx';
 
 function CompetencyRadar({ competencies }) {
-  const size = 220;
-  const center = size / 2;
-  const maxRadius = 78;
+  const width = 280;
+  const height = 220;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxRadius = 70;
   const values = COMPETENCY_META.map((c) => Math.max(10, Math.min(100, competencies?.[c.key] ?? 50)));
 
   // 4 ejes: arriba, derecha, abajo, izquierda
@@ -21,14 +23,14 @@ function CompetencyRadar({ competencies }) {
 
   const getPoint = (value, angle) => {
     const r = (value / 100) * maxRadius;
-    return [center + r * Math.cos(angle), center + r * Math.sin(angle)];
+    return [centerX + r * Math.cos(angle), centerY + r * Math.sin(angle)];
   };
 
   const dataPoints = values.map((v, i) => getPoint(v, angles[i]).join(',')).join(' ');
 
   return (
-    <div className="flex flex-col items-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-56 w-56 overflow-visible">
+    <div className="flex w-full flex-col items-center">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full max-w-[280px]">
         {[25, 50, 75, 100].map((level) => {
           const pts = angles.map((a) => getPoint(level, a).join(',')).join(' ');
           return (
@@ -47,8 +49,8 @@ function CompetencyRadar({ competencies }) {
           return (
             <line
               key={idx}
-              x1={center}
-              y1={center}
+              x1={centerX}
+              y1={centerY}
               x2={x}
               y2={y}
               stroke="#E2E8F0"
@@ -69,17 +71,17 @@ function CompetencyRadar({ competencies }) {
           return <circle key={i} cx={cx} cy={cy} r="4" fill="#0F172A" stroke="#fff" strokeWidth="1.5" />;
         })}
 
-        {/* Etiquetas */}
-        <text x={center} y={14} textAnchor="middle" className="fill-slate-600 text-[10px] font-semibold">
+        {/* Etiquetas con margen seguro para mobile */}
+        <text x={centerX} y={24} textAnchor="middle" className="fill-slate-600 text-[10px] font-semibold">
           Organización
         </text>
-        <text x={size - 4} y={center + 3} textAnchor="start" className="fill-slate-600 text-[10px] font-semibold">
+        <text x={centerX + maxRadius + 10} y={centerY + 3} textAnchor="start" className="fill-slate-600 text-[10px] font-semibold">
           Datos
         </text>
-        <text x={center} y={size - 6} textAnchor="middle" className="fill-slate-600 text-[10px] font-semibold">
+        <text x={centerX} y={height - 14} textAnchor="middle" className="fill-slate-600 text-[10px] font-semibold">
           Confidencialidad
         </text>
-        <text x={4} y={center + 3} textAnchor="end" className="fill-slate-600 text-[10px] font-semibold">
+        <text x={centerX - maxRadius - 10} y={centerY + 3} textAnchor="end" className="fill-slate-600 text-[10px] font-semibold">
           Comunicación
         </text>
       </svg>
@@ -217,7 +219,7 @@ export function ResultReport({ result, onRestart }) {
 
         <div className="flex flex-col items-center justify-center rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm lg:col-span-5">
           <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-            Perfil balanceado
+            Mapa de competencias
           </h3>
           <CompetencyRadar competencies={competencies} />
         </div>
