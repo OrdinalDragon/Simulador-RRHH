@@ -1,18 +1,21 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { matchSampleCv } from '../data/sampleCvsData.js';
 
-const DEFAULT_MODEL = 'gemini-3.8-flash';
-const MODEL_NAME = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+const FALLBACK_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+];
+const MODEL_NAME = (process.env.GEMINI_MODEL || FALLBACK_MODELS[0]).trim();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function generateJsonWithFallback(ai, { contents, responseSchema, temperature }) {
-  const modelsToTry =
-    MODEL_NAME === DEFAULT_MODEL ? [MODEL_NAME] : [MODEL_NAME, DEFAULT_MODEL];
+  const modelsToTry = Array.from(new Set([MODEL_NAME, ...FALLBACK_MODELS]));
 
   let lastError;
   for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const response = await ai.models.generateContent({
           model,
@@ -23,6 +26,7 @@ async function generateJsonWithFallback(ai, { contents, responseSchema, temperat
             temperature,
           },
         });
+        console.log(`[GeminiService] Respuesta exitosa con modelo ${model}`);
         return JSON.parse(response.text);
       } catch (error) {
         lastError = error;
@@ -34,17 +38,18 @@ async function generateJsonWithFallback(ai, { contents, responseSchema, temperat
           msg.includes('UNAVAILABLE') ||
           msg.includes('RESOURCE_EXHAUSTED');
 
-        if (isTransient && attempt < 2) {
-          const delayMs = 1200 * (attempt + 1);
+        if (isTransient && attempt === 0) {
           console.warn(
-            `[GeminiService] Demanda alta en ${model} (intento ${attempt + 1}/3). Reintentando en ${delayMs}ms...`
+            `[GeminiService] Demanda alta en ${model}. Reintentando en 1000ms antes de pasar al siguiente modelo...`
           );
-          await sleep(delayMs);
+          await sleep(1000);
           continue;
         }
 
-        if (isModelNotFound) {
-          console.warn(`[GeminiService] Modelo ${model} no disponible, intentando fallback...`);
+        if (isModelNotFound || isTransient) {
+          console.warn(
+            `[GeminiService] ${model} no disponible (${error?.status || 'error'}), probando siguiente modelo de la cascada...`
+          );
           break;
         }
 
