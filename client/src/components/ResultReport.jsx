@@ -5,18 +5,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Lightbulb,
-  Mail,
   Printer,
   RotateCcw,
-  Copy,
-  Check,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
 } from 'lucide-react';
 import { COMPETENCY_META } from './CompetencyBars.jsx';
-
-const SUBJECT_LINE = 'Búsqueda laboral – Auxiliar Administrativo/a de RR. HH.';
 
 function CompetencyRadar({ competencies }) {
   const width = 320;
@@ -98,7 +93,6 @@ function CompetencyRadar({ competencies }) {
 }
 
 export function ResultReport({ result, onRestart }) {
-  const [copiedSubject, setCopiedSubject] = useState(false);
   const [showDecisions, setShowDecisions] = useState(false);
 
   if (!result) return null;
@@ -121,16 +115,6 @@ export function ResultReport({ result, onRestart }) {
   const formattedDate = new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'long',
   }).format(new Date());
-
-  const handleCopySubject = async () => {
-    try {
-      await navigator.clipboard.writeText(SUBJECT_LINE);
-      setCopiedSubject(true);
-      setTimeout(() => setCopiedSubject(false), 2200);
-    } catch {
-      // Fallback silencioso si el navegador bloquea clipboard
-    }
-  };
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10 animate-fade-slide-up">
@@ -387,40 +371,14 @@ export function ResultReport({ result, onRestart }) {
         </div>
       )}
 
-      {/* Postulación oficial y acciones */}
-      <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-teal-200 bg-teal-50/60 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white">
-            <Mail className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">¿Querés postularte a IZET S.A.?</h3>
-            <p className="mt-0.5 text-xs leading-relaxed text-slate-700">
-              Enviá tu CV actualizado a través del canal oficial de contacto de IZET indicando en
-              el asunto:{' '}
-              <strong className="text-slate-900">“{SUBJECT_LINE}”</strong>
-            </p>
-            <button
-              type="button"
-              onClick={handleCopySubject}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold text-teal-800 ring-1 ring-inset ring-teal-200 transition hover:bg-teal-50 no-print"
-            >
-              {copiedSubject ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  Asunto copiado
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  Copiar asunto de postulación
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+      {/* Cierre y acciones */}
+      <div className="mt-6 flex flex-col gap-4 rounded-3xl border border-slate-200/90 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between no-print">
+        <p className="text-xs leading-relaxed text-slate-600">
+          Simulación finalizada. Podés exportar este reporte ejecutivo en PDF o iniciar una nueva
+          evaluación con otro perfil.
+        </p>
 
-        <div className="flex shrink-0 flex-wrap gap-2.5 no-print">
+        <div className="flex shrink-0 flex-wrap gap-2.5">
           <button
             type="button"
             onClick={() => window.print()}

@@ -435,7 +435,7 @@ function deterministicFinalReport(session, competencyScores, finalScore) {
     gaps,
     recommendations,
     closingNote:
-      'Este reporte es orientativo y busca acercarte a las situaciones reales del Departamento de Recursos Humanos de IZET S.A. Podés postularte formalmente enviando tu CV por el canal oficial con el asunto “Búsqueda laboral – Auxiliar Administrativo/a de RR. HH.”.',
+      'Este reporte es orientativo y refleja el desempeño simulado frente a situaciones cotidianas del Departamento de Recursos Humanos de IZET S.A.',
   };
 }
 
